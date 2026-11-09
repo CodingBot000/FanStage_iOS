@@ -12,7 +12,9 @@
 		43074ABA9218C0869468FC04 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36787C0A942A8B403D3D9264 /* RootView.swift */; };
 		97FE8C2050B79E9CFD39B319 /* Playback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25452DE628F3E7C2AB88163F /* Playback.swift */; };
 		A10A45163008338FB47DC43A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CC1ECD31A6FCBE21411BEAB /* Assets.xcassets */; };
+		B1A26F0EC1114A73F049BBE7 /* LiveChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */; };
 		CA52547909731B08D4F367E1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BE8EBAF241207E0B41DE418 /* Foundation.framework */; };
+		D49602E8B367CE19BA972BAF /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDCB5C773749D140BA749F9C /* ChatSession.swift */; };
 		DE838FF23E75E7EDE3ABC802 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09174D3D471467F2C4200385 /* Models.swift */; };
 		E31F0E467657BD51244AE7E4 /* FanStageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CEDA070E9E398279F9E461F /* FanStageTests.swift */; };
 		FFBB98263C2F9D4A287DAA22 /* demo.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = D9B00D148EDF884B90FC1E31 /* demo.mp4 */; };
@@ -30,6 +32,7 @@
 
 /* Begin PBXFileReference section */
 		09174D3D471467F2C4200385 /* Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveChatView.swift; sourceTree = "<group>"; };
 		0C85642D335E9543BDD54D30 /* FanStage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FanStage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0CC1ECD31A6FCBE21411BEAB /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		25452DE628F3E7C2AB88163F /* Playback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Playback.swift; sourceTree = "<group>"; };
@@ -39,6 +42,7 @@
 		55F00C9243CBC115604E0706 /* FanStageApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FanStageApp.swift; sourceTree = "<group>"; };
 		9CEDA070E9E398279F9E461F /* FanStageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FanStageTests.swift; sourceTree = "<group>"; };
 		D9B00D148EDF884B90FC1E31 /* demo.mp4 */ = {isa = PBXFileReference; includeInIndex = 1; name = demo.mp4; path = Resources/demo.mp4; sourceTree = "<group>"; };
+		EDCB5C773749D140BA749F9C /* ChatSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +82,8 @@
 				36787C0A942A8B403D3D9264 /* RootView.swift */,
 				0CC1ECD31A6FCBE21411BEAB /* Assets.xcassets */,
 				D9B00D148EDF884B90FC1E31 /* demo.mp4 */,
+				EDCB5C773749D140BA749F9C /* ChatSession.swift */,
+				0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */,
 			);
 			name = FanStage;
 			path = FanStage;
@@ -223,6 +229,8 @@
 				DE838FF23E75E7EDE3ABC802 /* Models.swift in Sources */,
 				97FE8C2050B79E9CFD39B319 /* Playback.swift in Sources */,
 				43074ABA9218C0869468FC04 /* RootView.swift in Sources */,
+				D49602E8B367CE19BA972BAF /* ChatSession.swift in Sources */,
+				B1A26F0EC1114A73F049BBE7 /* LiveChatView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,6 +255,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FanStage/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -396,6 +405,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FanStage/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

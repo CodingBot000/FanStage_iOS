@@ -14,6 +14,7 @@
 		A10A45163008338FB47DC43A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CC1ECD31A6FCBE21411BEAB /* Assets.xcassets */; };
 		B1A26F0EC1114A73F049BBE7 /* LiveChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */; };
 		CA52547909731B08D4F367E1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BE8EBAF241207E0B41DE418 /* Foundation.framework */; };
+		D081D98AA814F565C4EB223C /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 2CFD67196DF177A476267BC6 /* Localizable.strings */; };
 		D49602E8B367CE19BA972BAF /* ChatSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDCB5C773749D140BA749F9C /* ChatSession.swift */; };
 		DE838FF23E75E7EDE3ABC802 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09174D3D471467F2C4200385 /* Models.swift */; };
 		E31F0E467657BD51244AE7E4 /* FanStageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CEDA070E9E398279F9E461F /* FanStageTests.swift */; };
@@ -41,6 +42,8 @@
 		430DE2BAF291FDF45B0B6B16 /* FanStageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanStageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		55F00C9243CBC115604E0706 /* FanStageApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FanStageApp.swift; sourceTree = "<group>"; };
 		9CEDA070E9E398279F9E461F /* FanStageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FanStageTests.swift; sourceTree = "<group>"; };
+		A0A31C01F496099CCEBA26BC /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		C1127ACB1BF95B818991FE66 /* ko */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		D9B00D148EDF884B90FC1E31 /* demo.mp4 */ = {isa = PBXFileReference; includeInIndex = 1; name = demo.mp4; path = Resources/demo.mp4; sourceTree = "<group>"; };
 		EDCB5C773749D140BA749F9C /* ChatSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -84,6 +87,7 @@
 				D9B00D148EDF884B90FC1E31 /* demo.mp4 */,
 				EDCB5C773749D140BA749F9C /* ChatSession.swift */,
 				0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */,
+				2CFD67196DF177A476267BC6 /* Localizable.strings */,
 			);
 			name = FanStage;
 			path = FanStage;
@@ -179,6 +183,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ko,
 			);
 			mainGroup = 95CF2581BB2323E3FF1BB201;
 			minimizedProjectReferenceProxies = 0;
@@ -200,6 +205,7 @@
 			files = (
 				A10A45163008338FB47DC43A /* Assets.xcassets in Resources */,
 				FFBB98263C2F9D4A287DAA22 /* demo.mp4 in Resources */,
+				D081D98AA814F565C4EB223C /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -244,6 +250,18 @@
 			targetProxy = 2BFFFF1C21265AB2C2215DE4 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		2CFD67196DF177A476267BC6 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A0A31C01F496099CCEBA26BC /* en */,
+				C1127ACB1BF95B818991FE66 /* ko */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		1FF830796319CF05236AA95E /* Debug */ = {
@@ -405,7 +423,6 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FanStage/Info.plist;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;

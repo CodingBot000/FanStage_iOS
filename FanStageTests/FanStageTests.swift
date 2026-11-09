@@ -34,4 +34,14 @@ import XCTest
         XCTAssertTrue(chat.pending.isEmpty)
         XCTAssertEqual(chat.messages.count, 1)
     }
+    func testPlaybackSessionReleasesPlayerItem() {
+        let session = PlaybackSession()
+        guard let url = Bundle.main.url(forResource: "demo", withExtension: "mp4") else { return XCTFail("Missing demo video") }
+        session.load(url)
+        XCTAssertNotNil(session.player.currentItem)
+        session.setSpeed(1.5)
+        XCTAssertEqual(session.speed, 1.5)
+        session.stop()
+        XCTAssertNil(session.player.currentItem)
+    }
 }

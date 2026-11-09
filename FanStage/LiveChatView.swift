@@ -22,7 +22,7 @@ struct LiveChatView: View {
                     TextField("Server URL", text: $endpoint).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                     SecureField("Test token", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Button("Connect") { if let url = URL(string: endpoint), ["http", "https"].contains(url.scheme?.lowercased() ?? ""), !token.isEmpty { session.connect(base: url, token: token) } }
-                    Text(session.status).font(.caption)
+                    Text(LocalizedStringKey(session.status)).font(.caption)
                 }
             }.padding(.horizontal)
             #endif
@@ -31,7 +31,7 @@ struct LiveChatView: View {
                 if serverMode {
                     ForEach(session.messages) { row in HStack { Text(row.isOwn ? "You" : artist.name).bold(); Text(row.text); Spacer() } }
                     ForEach(session.pending) { item in
-                        HStack { Text(item.text); Text(item.failed ? "Failed" : "Pending").foregroundStyle(.secondary); Spacer()
+                        HStack { Text(item.text); Text(LocalizedStringKey(item.failed ? "Failed" : "Pending")).foregroundStyle(.secondary); Spacer()
                             Button("Retry") { session.retry(item.id) }
                             if item.failed { Button("Delete") { session.discard(item.id) } }
                         }

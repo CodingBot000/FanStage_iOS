@@ -20,6 +20,8 @@ struct DiscoverView: View {
         ScrollView { VStack(alignment: .leading, spacing: 20) {
             Text("Find your moment").font(.largeTitle.bold())
             Text("Meet your favorite artists, live and together.").foregroundStyle(.secondary)
+            Text("Communities").font(.headline)
+            ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(Artist.all) { artist in NavigationLink { CommunityView(artist: artist) } label: { VStack { Artwork(artist: artist, variant: "cover").frame(width: 68, height: 68).clipShape(Circle()); Text(artist.name).font(.caption) }.foregroundStyle(.primary) } } } }
             HStack { Text("LIVE NOW").font(.headline); Spacer(); Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(.red) }
             ForEach(Artist.all) { artist in
                 NavigationLink { LiveView(artist: artist) } label: {
@@ -39,6 +41,7 @@ struct CommunityView: View {
     var artist: Artist? = nil
     var body: some View {
         ScrollView { LazyVStack(spacing: 18) {
+            if artist == nil { ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(Artist.all) { item in NavigationLink(item.name) { CommunityView(artist: item) }.buttonStyle(.bordered) } } } }
             ForEach(store.posts.filter { artist == nil || $0.artist.id == artist?.id }) { post in
                 NavigationLink { PostView(id: post.id) } label: { PostCard(post: post) }.buttonStyle(.plain)
             }
@@ -74,19 +77,22 @@ struct PostView: View {
     }
 }
 struct MediaView: View {
+    @State private var filter = 0
     var body: some View {
         ScrollView { VStack(alignment: .leading, spacing: 20) {
             Text("Videos & moments").font(.largeTitle.bold())
-            NavigationLink { ReplayView(title: "Replay") } label: { Label("Watch replay", systemImage: "play.circle.fill").font(.title2.bold()) }
-            ForEach(Artist.all) { artist in NavigationLink { LiveView(artist: artist) } label: {
+            Picker("Filter", selection: $filter) { Text("All").tag(0); Text("LIVE").tag(1); Text("Replay").tag(2) }.pickerStyle(.segmented)
+            if filter != 1 { NavigationLink { ReplayView(title: "Replay") } label: { Label("Watch replay", systemImage: "play.circle.fill").font(.title2.bold()) } }
+            if filter != 2 { ForEach(Artist.all) { artist in NavigationLink { LiveView(artist: artist) } label: {
                 HStack { Artwork(artist: artist, variant: "cover").frame(width: 90, height: 90).clipShape(RoundedRectangle(cornerRadius: 12)); VStack(alignment: .leading) { Text(artist.roomTitle).font(.headline); Text(artist.name).foregroundStyle(.secondary) }; Spacer(); Image(systemName: "play.circle") }.foregroundStyle(.primary)
-            } }
+            } } }
         }.padding(20) }.background(Color.canvas).navigationTitle("Media")
     }
 }
 struct MessagesView: View {
+    @EnvironmentObject var store: FanStore
     var body: some View { List(Artist.all) { artist in NavigationLink { ConversationView(artist: artist) } label: {
-        HStack { Artwork(artist: artist, variant: "cover").frame(width: 56, height: 56).clipShape(Circle()); VStack(alignment: .leading) { Text(artist.name).font(.headline); Text("Welcome to our space!").foregroundStyle(.secondary) } }
+        HStack { Artwork(artist: artist, variant: "cover").frame(width: 56, height: 56).clipShape(Circle()); VStack(alignment: .leading) { Text(artist.name).font(.headline); Text(store.conversations[artist.id]?.last?.text ?? "Welcome to our space!").foregroundStyle(.secondary) } }
     } }.navigationTitle("Messages") }
 }
 struct ConversationView: View {

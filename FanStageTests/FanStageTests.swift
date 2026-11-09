@@ -57,6 +57,14 @@ import XCTest
         for _ in 0..<100 where !chat.pending.isEmpty { try await Task.sleep(nanoseconds: 100_000_000) }
         XCTAssertTrue(chat.pending.isEmpty)
         XCTAssertTrue(chat.messages.contains { $0.text == value && $0.isOwn })
+        chat.suspend()
+        let delayed = UUID().uuidString
+        chat.send(delayed)
+        let stableID = try XCTUnwrap(chat.pending.first?.id)
+        chat.reconnect()
+        for _ in 0..<100 where !chat.pending.isEmpty { try await Task.sleep(nanoseconds: 100_000_000) }
+        XCTAssertTrue(chat.pending.isEmpty)
+        XCTAssertEqual(chat.messages.filter { $0.clientMessageId == stableID && $0.text == delayed }.count, 1)
     }
     func testHLSWhenConfigured() async throws {
         guard let address = ProcessInfo.processInfo.environment["FANSTAGE_TEST_HLS"], let url = URL(string: address) else { throw XCTSkip("HLS fixture server not configured") }
@@ -72,5 +80,42 @@ import XCTest
         XCTAssertEqual(session.selectedSubtitle, 0)
         for _ in 0..<100 where session.player.currentTime().seconds < 0.1 { try await Task.sleep(nanoseconds: 100_000_000) }
         XCTAssertGreaterThan(session.player.currentTime().seconds, 0.1)
+    }
+    func testRoomSessionRetainsPendingAcrossNavigation() {
+        let store = FanStore()
+        let first = store.chat(for: "studio-session")
+        first.send("Waiting")
+        let id = first.pending[0].id
+        first.suspend()
+        XCTAssertTrue(first.pending[0].uncertain)
+        XCTAssertTrue(first === store.chat(for: "studio-session"))
+        XCTAssertEqual(store.chat(for: "studio-session").pending.first?.id, id)
+        XCTAssertTrue(store.chat(for: "other-room").pending.isEmpty)
+    }
+    func testLostAcknowledgementWhenConfigured() async throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let address = env["FANSTAGE_TEST_ACK_PROXY"], let token = env["FANSTAGE_TEST_TOKEN"], let url = URL(string: address) else { throw XCTSkip("ACK loss proxy not configured") }
+        let chat = ChatSession(room: "ios-ack-loss")
+        defer { chat.stop() }
+        chat.connect(base: url, token: token)
+        for _ in 0..<100 where chat.status != "Connected" { try await Task.sleep(nanoseconds: 100_000_000) }
+        XCTAssertEqual(chat.status, "Connected")
+        let value = UUID().uuidString
+        chat.send(value)
+        let id = try XCTUnwrap(chat.pending.first?.id)
+        for _ in 0..<150 where chat.pending.first?.uncertain != true { try await Task.sleep(nanoseconds: 100_000_000) }
+        XCTAssertEqual(chat.pending.first?.id, id)
+        XCTAssertEqual(chat.pending.first?.uncertain, true)
+        chat.retry(id)
+        for _ in 0..<100 where !chat.pending.isEmpty { try await Task.sleep(nanoseconds: 100_000_000) }
+        XCTAssertTrue(chat.pending.isEmpty)
+        XCTAssertEqual(chat.messages.filter { $0.clientMessageId == id && $0.text == value }.count, 1)
+        let directAddress = try XCTUnwrap(env["FANSTAGE_TEST_URL"])
+        let historyURL = try XCTUnwrap(URL(string: directAddress + "/rooms/ios-ack-loss/messages?afterSequence=0&upperSequence=1000&limit=1000"))
+        var request = URLRequest(url: historyURL)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let rows = try JSONDecoder().decode([ServerMessage].self, from: data)
+        XCTAssertEqual(rows.filter { $0.clientMessageId == id }.count, 1)
     }
 }

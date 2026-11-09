@@ -3,11 +3,13 @@ import AVKit
 
 struct ReplayView: View {
     let title: String
-    var body: some View { PlaybackView(title: title, artist: nil) }
+    @EnvironmentObject private var store: FanStore
+    var body: some View { PlaybackView(title: title, artist: nil, chat: store.chat(for: "replay")) }
 }
 struct LiveView: View {
     let artist: Artist
-    var body: some View { PlaybackView(title: artist.roomTitle, artist: artist) }
+    @EnvironmentObject private var store: FanStore
+    var body: some View { PlaybackView(title: artist.roomTitle, artist: artist, chat: store.chat(for: artist.roomID)) }
 }
 @MainActor final class PlaybackSession: ObservableObject {
     let player = AVPlayer()
@@ -53,12 +55,7 @@ struct PlaybackView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @StateObject private var session = PlaybackSession()
-    @StateObject private var chat: ChatSession
-    @State private var confirmExit = false
-    init(title: String, artist: Artist?) {
-        self.title = title; self.artist = artist
-        _chat = StateObject(wrappedValue: ChatSession(room: artist?.roomID ?? "replay"))
-    }
+    @ObservedObject var chat: ChatSession
     @State private var expanded = false
     @State private var showSettings = false
     #if DEBUG
@@ -78,12 +75,11 @@ struct PlaybackView: View {
             if let artist { LiveChatView(artist: artist, session: chat) } else { Spacer() }
         }.navigationTitle(artist == nil ? "Replay" : "LIVE").navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
-            .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button { if chat.pending.isEmpty { dismiss() } else { confirmExit = true } } label: { Label("Back", systemImage: "chevron.left") } } }
-            .alert("Pending messages", isPresented: $confirmExit) { Button("Stay", role: .cancel) {} ; Button("Leave", role: .destructive) { dismiss() } } message: { Text("Pending messages will be lost if you leave this room.") }
+            .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button { dismiss() } label: { Label("Back", systemImage: "chevron.left") } } }
             .sheet(isPresented: $showSettings) { settings.presentationDetents([.medium, .large]) }
             .fullScreenCover(isPresented: $expanded) { ZStack(alignment: .topTrailing) { Color.black.ignoresSafeArea(); VideoPlayer(player: session.player); Button("Done") { expanded = false }.padding().background(.ultraThinMaterial, in: Capsule()).padding() } }
             .onAppear { if session.player.currentItem == nil, let url = Bundle.main.url(forResource: "demo", withExtension: "mp4") { session.load(url) } }
-            .onDisappear { if !expanded { session.stop(); chat.stop() } }
+            .onDisappear { if !expanded { session.stop(); chat.suspend() } }
             .onChange(of: scenePhase) { phase in if phase != .active { session.player.pause() } }
     }
     private var settings: some View {

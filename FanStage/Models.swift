@@ -26,6 +26,11 @@ struct Message: Identifiable {
 @MainActor final class FanStore: ObservableObject {
     @Published var posts = Artist.all.map { Post(id: "post-\($0.id)", artist: $0) }
     @Published var conversations = Dictionary(uniqueKeysWithValues: Artist.all.map { ($0.id, [Message(text: "Welcome to our space!", isOwn: false)]) })
+    private var chats: [String: ChatSession] = [:]
+    func chat(for room: String) -> ChatSession {
+        if let existing = chats[room] { return existing }
+        let created = ChatSession(room: room); chats[room] = created; return created
+    }
     func toggleLike(_ id: String) { if let i = posts.firstIndex(where: { $0.id == id }) { posts[i].liked.toggle() } }
     func comment(_ id: String, text: String) { let t = text.trimmingCharacters(in: .whitespacesAndNewlines); if !t.isEmpty, let i = posts.firstIndex(where: { $0.id == id }) { posts[i].comments.append(t) } }
     func send(_ artist: Artist, text: String) { let t = text.trimmingCharacters(in: .whitespacesAndNewlines); if !t.isEmpty { conversations[artist.id, default: []].append(Message(text: t, isOwn: true)) } }

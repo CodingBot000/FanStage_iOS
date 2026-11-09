@@ -54,3 +54,7 @@
 "Leave" = "Leave";
 "Pending messages will be lost if you leave this room." = "Pending messages will be lost if you leave this room.";
 "Reconnect" = "Reconnect";
+"Unconfirmed" = "Unconfirmed";
+"Communities" = "Communities";
+"Filter" = "Filter";
+"All" = "All";

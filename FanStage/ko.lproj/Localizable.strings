@@ -54,3 +54,7 @@
 "Leave" = "나가기";
 "Pending messages will be lost if you leave this room." = "방을 나가면 확인되지 않은 메시지가 사라집니다.";
 "Reconnect" = "재연결";
+"Unconfirmed" = "전송 결과 확인 불가";
+"Communities" = "커뮤니티";
+"Filter" = "필터";
+"All" = "전체";

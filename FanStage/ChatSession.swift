@@ -21,6 +21,7 @@ struct PendingChat: Identifiable {
     let id: String
     let text: String
     var failed = false
+    var uncertain = false
 }
 
 @MainActor final class ChatSession: ObservableObject {
@@ -38,6 +39,8 @@ struct PendingChat: Identifiable {
     private var cursor = 0
     private var highest = 0
     private var rows: [Int: ServerMessage] = [:]
+    private var deadlines: [String: Task<Void, Never>] = [:]
+    var hasServerSession: Bool { base != nil && !token.isEmpty }
     private let session: URLSession
 
     init(room: String, session: URLSession = .shared) { self.room = room; self.session = session }
@@ -50,7 +53,13 @@ struct PendingChat: Identifiable {
     }
     func stop() {
         epoch += 1; worker?.cancel(); recovery?.cancel(); socket?.cancel(with: .goingAway, reason: nil)
-        worker = nil; recovery = nil; socket = nil; token = ""; status = "Disconnected"
+        worker = nil; recovery = nil; socket = nil; deadlines.values.forEach { $0.cancel() }; deadlines.removeAll(); token = ""; base = nil; status = "Disconnected"
+    }
+    func suspend() {
+        epoch += 1; worker?.cancel(); recovery?.cancel(); socket?.cancel(with: .goingAway, reason: nil)
+        worker = nil; recovery = nil; socket = nil; deadlines.values.forEach { $0.cancel() }; deadlines.removeAll()
+        for index in pending.indices where !pending[index].failed { pending[index].uncertain = true }
+        status = "Disconnected"
     }
     private func run(_ generation: Int) async {
         var failures = 0
@@ -70,7 +79,7 @@ struct PendingChat: Identifiable {
                     let packet = try JSONDecoder().decode(Envelope.self, from: data)
                     if packet.type == "subscribed", let head = packet.headSequence, head >= 0 {
                         status = "Connected"; highest = max(highest, head); scheduleRecovery(generation)
-                        for item in pending where !item.failed { try await transmit(item, socket: ws) }
+                        for item in pending where !item.failed { try await transmit(item, socket: ws); startDeadline(item.id) }
                     } else if (packet.type == "ack" || packet.type == "message"), let message = packet.message {
                         merge(message); scheduleRecovery(generation)
                     } else if packet.type == "error", let id = packet.clientMessageId, let index = pending.firstIndex(where: { $0.id == id }), packet.code == "invalid" || packet.code == "conflict" {
@@ -93,35 +102,50 @@ struct PendingChat: Identifiable {
     }
     func send(_ text: String) {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clean.isEmpty, clean.unicodeScalars.count <= 1000, pending.count < 200 else { return }
+        guard !clean.isEmpty, clean.unicodeScalars.count <= 1000, pending.count < 1000 else { return }
         let item = PendingChat(id: UUID().uuidString.lowercased(), text: clean)
         pending.append(item)
-        if let socket, status == "Connected" { Task { try? await transmit(item, socket: socket) } }
+        if let socket, status == "Connected" { sendPending(item, socket: socket) }
     }
     func retry(_ id: String) {
         guard let index = pending.firstIndex(where: { $0.id == id }), let socket, status == "Connected" else { return }
-        pending[index].failed = false; let item = pending[index]
-        Task { try? await transmit(item, socket: socket) }
+        pending[index].failed = false; pending[index].uncertain = false; let item = pending[index]
+        sendPending(item, socket: socket)
     }
     func discard(_ id: String) { if let item = pending.first(where: { $0.id == id }), item.failed { pending.removeAll { $0.id == id } } }
+    private func sendPending(_ item: PendingChat, socket: URLSessionWebSocketTask) {
+        let generation = epoch
+        Task {
+            do { try await transmit(item, socket: socket); if generation == epoch { startDeadline(item.id) } }
+            catch { if generation == epoch { socket.cancel(with: .goingAway, reason: nil) } }
+        }
+    }
+    private func startDeadline(_ id: String) {
+        deadlines[id]?.cancel()
+        deadlines[id] = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard !Task.isCancelled, let index = pending.firstIndex(where: { $0.id == id }) else { return }
+            pending[index].uncertain = true; deadlines[id] = nil
+        }
+    }
     private func transmit(_ item: PendingChat, socket: URLSessionWebSocketTask) async throws {
         let data = try JSONSerialization.data(withJSONObject: ["type": "send", "clientMessageId": item.id, "text": item.text])
         try await socket.send(.string(String(decoding: data, as: UTF8.self)))
     }
     func merge(_ message: ServerMessage) {
         guard message.roomId == room, message.serverSequence > 0 else { return }
-        if let id = message.clientMessageId { pending.removeAll { $0.id == id } }
-        if message.serverSequence > cursor { rows[message.serverSequence] = message }
+        if message.isOwn, let id = message.clientMessageId { deadlines[id]?.cancel(); deadlines[id] = nil; pending.removeAll { $0.id == id } }
+        if message.serverSequence > cursor && message.serverSequence - cursor <= 1000 { rows[message.serverSequence] = message }
         highest = max(highest, message.serverSequence)
         while rows[cursor + 1] != nil { cursor += 1 }
-        messages = Array(rows.values.sorted { $0.serverSequence < $1.serverSequence }.suffix(200))
-        if rows.count > 400 { rows = rows.filter { $0.key > cursor - 200 } }
+        messages = Array(rows.values.sorted { $0.serverSequence < $1.serverSequence }.suffix(500))
+        if rows.count > 1000 { rows = rows.filter { $0.key > cursor - 1000 } }
         gapUnresolved = cursor < highest
     }
     private func scheduleRecovery(_ generation: Int) {
         guard cursor < highest, recovery == nil else { return }
         recovery = Task {
-            defer { recovery = nil }
+            defer { if generation == epoch { recovery = nil } }
             do {
                 while cursor < highest && !Task.isCancelled && generation == epoch {
                     let before = cursor

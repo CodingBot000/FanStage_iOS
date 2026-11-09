@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LiveChatView: View {
     let artist: Artist
-    @StateObject private var session: ChatSession
+    @ObservedObject var session: ChatSession
     @State private var demo: [Message] = [Message(text: "Welcome to the live chat!", isOwn: false)]
     @State private var text = ""
     #if DEBUG
@@ -10,7 +10,6 @@ struct LiveChatView: View {
     @State private var endpoint = "http://127.0.0.1:18765"
     @State private var token = ""
     #endif
-    init(artist: Artist) { self.artist = artist; _session = StateObject(wrappedValue: ChatSession(room: artist.roomID)) }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             #if DEBUG
@@ -23,6 +22,7 @@ struct LiveChatView: View {
                     SecureField("Test token", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Button("Connect") { if let url = URL(string: endpoint), ["http", "https"].contains(url.scheme?.lowercased() ?? ""), !token.isEmpty { session.connect(base: url, token: token) } }
                     Text(LocalizedStringKey(session.status)).font(.caption)
+                    if session.status == "Disconnected" && !session.pending.isEmpty { Button("Reconnect") { session.reconnect() } }
                 }
             }.padding(.horizontal)
             #endif
@@ -55,7 +55,7 @@ struct LiveChatView: View {
                     text = ""
                 }
             }.padding().background(.bar)
-        }.onDisappear { session.stop() }
+        }
     }
     private var demoRows: some View {
         ForEach(demo) { message in HStack(alignment: .top) { Text(message.isOwn ? "You" : artist.name).bold(); Text(message.text); Spacer() } }

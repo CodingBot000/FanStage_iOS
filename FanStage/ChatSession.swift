@@ -43,7 +43,8 @@ struct PendingChat: Identifiable {
     init(room: String, session: URLSession = .shared) { self.room = room; self.session = session }
     func connect(base: URL, token: String) {
         guard pending.isEmpty else { status = "Resolve pending messages first"; return }
-        stop(); self.base = base; self.token = token
+        stop(); rows.removeAll(); messages.removeAll(); cursor = 0; highest = 0; gapUnresolved = false
+        self.base = base; self.token = token
         let generation = epoch
         worker = Task { await run(generation) }
     }
@@ -84,6 +85,11 @@ struct PendingChat: Identifiable {
             }
         }
         if generation == epoch { status = "Disconnected" }
+    }
+    func reconnect() {
+        guard status == "Disconnected", base != nil, !token.isEmpty else { return }
+        let generation = epoch
+        worker = Task { await run(generation) }
     }
     func send(_ text: String) {
         let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -48,3 +48,9 @@
 "Connected" = "Connected";
 "Resolve pending messages first" = "Resolve pending messages first";
 "Playback failed" = "Playback failed";
+"Back" = "Back";
+"Pending messages" = "Pending messages";
+"Stay" = "Stay";
+"Leave" = "Leave";
+"Pending messages will be lost if you leave this room." = "Pending messages will be lost if you leave this room.";
+"Reconnect" = "Reconnect";

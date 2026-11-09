@@ -48,3 +48,9 @@
 "Connected" = "연결됨";
 "Resolve pending messages first" = "먼저 전송 중인 메시지를 확인하세요";
 "Playback failed" = "재생할 수 없습니다";
+"Back" = "뒤로";
+"Pending messages" = "전송 확인 중인 메시지";
+"Stay" = "계속 머무르기";
+"Leave" = "나가기";
+"Pending messages will be lost if you leave this room." = "방을 나가면 확인되지 않은 메시지가 사라집니다.";
+"Reconnect" = "재연결";

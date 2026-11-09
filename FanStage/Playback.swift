@@ -51,7 +51,14 @@ struct PlaybackView: View {
     let title: String
     let artist: Artist?
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var session = PlaybackSession()
+    @StateObject private var chat: ChatSession
+    @State private var confirmExit = false
+    init(title: String, artist: Artist?) {
+        self.title = title; self.artist = artist
+        _chat = StateObject(wrappedValue: ChatSession(room: artist?.roomID ?? "replay"))
+    }
     @State private var expanded = false
     @State private var showSettings = false
     #if DEBUG
@@ -68,12 +75,15 @@ struct PlaybackView: View {
                 HStack { TextField("HLS or MP4 URL", text: $source).textInputAutocapitalization(.never).autocorrectionDisabled(); Button("Load") { if let url = URL(string: source), ["http", "https"].contains(url.scheme?.lowercased() ?? "") { session.load(url) } } }
             }.padding(.horizontal)
             #endif
-            if let artist { LiveChatView(artist: artist) } else { Spacer() }
+            if let artist { LiveChatView(artist: artist, session: chat) } else { Spacer() }
         }.navigationTitle(artist == nil ? "Replay" : "LIVE").navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button { if chat.pending.isEmpty { dismiss() } else { confirmExit = true } } label: { Label("Back", systemImage: "chevron.left") } } }
+            .alert("Pending messages", isPresented: $confirmExit) { Button("Stay", role: .cancel) {} ; Button("Leave", role: .destructive) { dismiss() } } message: { Text("Pending messages will be lost if you leave this room.") }
             .sheet(isPresented: $showSettings) { settings.presentationDetents([.medium, .large]) }
             .fullScreenCover(isPresented: $expanded) { ZStack(alignment: .topTrailing) { Color.black.ignoresSafeArea(); VideoPlayer(player: session.player); Button("Done") { expanded = false }.padding().background(.ultraThinMaterial, in: Capsule()).padding() } }
-            .onAppear { if let url = Bundle.main.url(forResource: "demo", withExtension: "mp4") { session.load(url) } }
-            .onDisappear { session.stop() }
+            .onAppear { if session.player.currentItem == nil, let url = Bundle.main.url(forResource: "demo", withExtension: "mp4") { session.load(url) } }
+            .onDisappear { if !expanded { session.stop(); chat.stop() } }
             .onChange(of: scenePhase) { phase in if phase != .active { session.player.pause() } }
     }
     private var settings: some View {

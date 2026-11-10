@@ -7,7 +7,7 @@ import struct
 import threading
 
 UPSTREAM = ('127.0.0.1', 28765)
-dropped_id = None
+dropped_ids = set()
 lock = threading.Lock()
 
 def exact(sock, count):
@@ -31,7 +31,6 @@ def pipe(src, dst):
 
 class Handler(socketserver.BaseRequestHandler):
     def handle(self):
-        global dropped_id
         client = self.request
         upstream = socket.create_connection(UPSTREAM)
         try:
@@ -59,10 +58,10 @@ class Handler(socketserver.BaseRequestHandler):
                 packet = json.loads(payload) if head[0] & 15 == 1 else {}
                 message = packet.get('message') or {}
                 with lock:
-                    if packet.get('type') == 'ack' and dropped_id is None:
-                        dropped_id = message.get('clientMessageId')
+                    if packet.get('type') == 'ack' and message.get('clientMessageId') not in dropped_ids:
+                        dropped_ids.add(message.get('clientMessageId'))
                         continue
-                    if packet.get('type') == 'message' and dropped_id and message.get('clientMessageId') == dropped_id:
+                    if packet.get('type') == 'message' and message.get('clientMessageId') in dropped_ids:
                         continue
                 client.sendall(head + extension + payload)
         except (EOFError, OSError, ValueError) as exc:

@@ -9,8 +9,8 @@ struct LiveChatView: View {
     @State private var confirmDiscard = false
     @FocusState private var inputFocused: Bool
     #if DEBUG
-    @State private var endpoint = "http://127.0.0.1:18765"
-    @State private var token = ""
+    @State private var endpoint = ProcessInfo.processInfo.environment["FANSTAGE_UI_TEST_URL"] ?? "http://127.0.0.1:18765"
+    @State private var token = ProcessInfo.processInfo.environment["FANSTAGE_UI_TEST_TOKEN"] ?? ""
     #endif
     init(artist: Artist, session: ChatSession) {
         self.artist = artist; self.session = session
@@ -39,7 +39,7 @@ struct LiveChatView: View {
                         HStack { Text(item.text); Text(LocalizedStringKey(item.failed ? "Failed" : item.uncertain ? "Unconfirmed" : "Pending")).foregroundStyle(.secondary); Spacer()
                             Button("Retry") { session.retry(item.id) }
                             Button("Delete") { pendingToDiscard = item.id; confirmDiscard = true }
-                        }
+                        }.accessibilityIdentifier("pending_\(item.id)")
                     }
                     if session.gapUnresolved { Button("Messages missing · Retry") { session.recover() } }
                 } else { demoRows }

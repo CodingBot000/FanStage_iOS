@@ -118,4 +118,9 @@ import XCTest
         let rows = try JSONDecoder().decode([ServerMessage].self, from: data)
         XCTAssertEqual(rows.filter { $0.clientMessageId == id }.count, 1)
     }
+    func testUnboundSessionDoesNotEnqueueMessage() {
+        let chat = ChatSession(room: "studio-session")
+        chat.send("draft")
+        XCTAssertTrue(chat.pending.isEmpty, "Unbound messages cannot be safely assigned to an account")
+    }
 }

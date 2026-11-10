@@ -13,6 +13,7 @@
 		192F57FE7309EAA79071F1B4 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BE8EBAF241207E0B41DE418 /* Foundation.framework */; };
 		43074ABA9218C0869468FC04 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36787C0A942A8B403D3D9264 /* RootView.swift */; };
 		97FE8C2050B79E9CFD39B319 /* Playback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25452DE628F3E7C2AB88163F /* Playback.swift */; };
+		9926498014D5CF7E707EE77A /* ChatTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CA7AC070552FEA49F4C883D /* ChatTimeline.swift */; };
 		A10A45163008338FB47DC43A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CC1ECD31A6FCBE21411BEAB /* Assets.xcassets */; };
 		B1A26F0EC1114A73F049BBE7 /* LiveChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */; };
 		CA52547909731B08D4F367E1 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BE8EBAF241207E0B41DE418 /* Foundation.framework */; };
@@ -50,6 +51,7 @@
 		36787C0A942A8B403D3D9264 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		430DE2BAF291FDF45B0B6B16 /* FanStageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanStageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		55F00C9243CBC115604E0706 /* FanStageApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FanStageApp.swift; sourceTree = "<group>"; };
+		7CA7AC070552FEA49F4C883D /* ChatTimeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatTimeline.swift; sourceTree = "<group>"; };
 		9CEDA070E9E398279F9E461F /* FanStageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FanStageTests.swift; sourceTree = "<group>"; };
 		A0A31C01F496099CCEBA26BC /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B33243D131785BBB1D59D891 /* FanStageUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FanStageUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -107,6 +109,7 @@
 				EDCB5C773749D140BA749F9C /* ChatSession.swift */,
 				0BE3CCF695E800C3274A4A28 /* LiveChatView.swift */,
 				2CFD67196DF177A476267BC6 /* Localizable.strings */,
+				7CA7AC070552FEA49F4C883D /* ChatTimeline.swift */,
 			);
 			name = FanStage;
 			path = FanStage;
@@ -293,6 +296,7 @@
 				43074ABA9218C0869468FC04 /* RootView.swift in Sources */,
 				D49602E8B367CE19BA972BAF /* ChatSession.swift in Sources */,
 				B1A26F0EC1114A73F049BBE7 /* LiveChatView.swift in Sources */,
+				9926498014D5CF7E707EE77A /* ChatTimeline.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

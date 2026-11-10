@@ -48,9 +48,7 @@ struct ChatReconnectPolicy {
     private var worker: Task<Void, Never>?
     private var recovery: Task<Void, Never>?
     private var epoch = 0
-    private var cursor = 0
-    private var highest = 0
-    private var rows: [Int: ServerMessage] = [:]
+    private var timeline: ChatTimeline
     private var deadlines: [String: Task<Void, Never>] = [:]
     var hasServerSession: Bool { base != nil && !token.isEmpty }
     var canSend: Bool { hasServerSession }
@@ -59,11 +57,11 @@ struct ChatReconnectPolicy {
     private let retrySleep: (Int) async throws -> Void
 
     init(room: String, session: URLSession = .shared, retrySleep: @escaping (Int) async throws -> Void = { delay in try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000) }) {
-        self.room = room; self.session = session; self.retrySleep = retrySleep
+        self.room = room; self.timeline = ChatTimeline(room: room); self.session = session; self.retrySleep = retrySleep
     }
     func connect(base: URL, token: String) {
         guard pending.isEmpty else { return }
-        stop(); rows.removeAll(); messages.removeAll(); cursor = 0; highest = 0; gapUnresolved = false
+        stop(); timeline = ChatTimeline(room: room); messages.removeAll(); gapUnresolved = false
         self.base = base; self.token = token
         let generation = epoch
         status = "Connecting"
@@ -127,7 +125,7 @@ struct ChatReconnectPolicy {
         guard generation == epoch, !Task.isCancelled else { return false }
         if packet.type == "subscribed" {
             guard let head = packet.headSequence, head >= 0 else { return false }
-            status = "Connected"; highest = max(highest, head); scheduleRecovery(generation)
+            status = "Connected"; timeline.observeHead(head); scheduleRecovery(generation)
         } else if (packet.type == "ack" || packet.type == "message"), let message = packet.message {
             merge(message); scheduleRecovery(generation)
         } else if packet.type == "error", let id = packet.clientMessageId, let index = pending.firstIndex(where: { $0.id == id }), packet.code == "invalid" || packet.code == "conflict" {
@@ -186,31 +184,27 @@ struct ChatReconnectPolicy {
         try await socket.send(.string(String(decoding: data, as: UTF8.self)))
     }
     func merge(_ message: ServerMessage) {
-        guard message.roomId == room, message.serverSequence > 0 else { return }
+        guard timeline.merge(message) else { return }
         if message.isOwn, let id = message.clientMessageId { deadlines[id]?.cancel(); deadlines[id] = nil; pending.removeAll { $0.id == id } }
-        if message.serverSequence > cursor && message.serverSequence - cursor <= 1000 { rows[message.serverSequence] = message }
-        highest = max(highest, message.serverSequence)
-        while rows[cursor + 1] != nil { cursor += 1 }
-        messages = Array(rows.values.sorted { $0.serverSequence < $1.serverSequence }.suffix(500))
-        if rows.count > 1000 { rows = rows.filter { $0.key > cursor - 1000 } }
-        gapUnresolved = cursor < highest
+        messages = timeline.messages
+        gapUnresolved = timeline.hasGap
     }
     private func scheduleRecovery(_ generation: Int) {
-        guard cursor < highest, recovery == nil else { return }
+        guard timeline.hasGap, recovery == nil else { return }
         recovery = Task {
             defer { if generation == epoch { recovery = nil } }
             do {
-                while cursor < highest && !Task.isCancelled && generation == epoch {
-                    let before = cursor
+                while timeline.hasGap && !Task.isCancelled && generation == epoch {
+                    let before = timeline.cursor
                     guard let base, var components = URLComponents(url: base.appendingPathComponent("rooms/\(room)/messages"), resolvingAgainstBaseURL: false) else { throw URLError(.badURL) }
-                    components.queryItems = [URLQueryItem(name: "afterSequence", value: String(cursor)), URLQueryItem(name: "upperSequence", value: String(highest)), URLQueryItem(name: "limit", value: "200")]
+                    components.queryItems = [URLQueryItem(name: "afterSequence", value: String(timeline.cursor)), URLQueryItem(name: "upperSequence", value: String(timeline.highest)), URLQueryItem(name: "limit", value: "200")]
                     guard let url = components.url else { throw URLError(.badURL) }
                     var request = URLRequest(url: url); request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
                     let (data, response) = try await session.data(for: request)
                     guard !Task.isCancelled, generation == epoch, (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
                     let page = try JSONDecoder().decode([ServerMessage].self, from: data)
                     for row in page { merge(row) }
-                    guard cursor > before else { throw URLError(.cannotDecodeContentData) }
+                    guard timeline.cursor > before else { throw URLError(.cannotDecodeContentData) }
                 }
             } catch { if generation == epoch { gapUnresolved = true } }
         }

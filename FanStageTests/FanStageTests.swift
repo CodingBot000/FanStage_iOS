@@ -316,4 +316,16 @@ import XCTest
         XCTAssertEqual(chat.deadlineCount, 0)
         chat.stop()
     }
+    func testTimelineMergesLateBackfillWithoutLosingNewEvents() {
+        var timeline = ChatTimeline(room: "room")
+        func row(_ n: Int, _ room: String = "room") -> ServerMessage {
+            ServerMessage(roomId: room, messageId: "\(n)", clientMessageId: nil, serverSequence: n, text: "\(n)", isOwn: false, sentAt: "")
+        }
+        timeline.merge(row(1)); timeline.merge(row(3)); timeline.merge(row(4))
+        XCTAssertTrue(timeline.hasGap)
+        timeline.merge(row(2)); timeline.merge(row(2)); timeline.merge(row(5, "other"))
+        XCTAssertEqual(timeline.messages.map(\.serverSequence), [1, 2, 3, 4])
+        XCTAssertEqual(timeline.cursor, 4)
+        XCTAssertFalse(timeline.hasGap)
+    }
 }

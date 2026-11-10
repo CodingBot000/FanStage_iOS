@@ -20,3 +20,7 @@
 CH-02·CH-03의 **수정 전 RED는 NOT_VERIFIED**다. 실제 HTTP 조회 응답 지연과 오래된 소켓 프레임이 취소된 클라이언트에 실제 전달되는 상황, 장시간 리소스 누수는 별도 검증이 필요하다. 미확정 메시지는 앱 실행 중 메모리에만 존재한다. 테스트용 격리 DB 볼륨은 자동 삭제하지 않았다. [명령·결과·한계](verification/chat-session-phase1.md)
 
 Phase 2는 사용자 승인 후 책임 분리와 네트워크 경계 테스트 구조를 검토한다. 구현은 시작하지 않았다.
+
+## Phase 2
+
+- **IN_PROGRESS** — 시작 HEAD `1c399b4`; 기준선과 작업 기록은 [Phase 2 검증](verification/chat-session-phase2.md)에 기록한다.

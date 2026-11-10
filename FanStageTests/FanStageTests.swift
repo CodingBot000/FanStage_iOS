@@ -341,11 +341,12 @@ import XCTest
         connection.deliver(event(1)); connection.deliver(event(3))
         for _ in 0..<1000 where transport.fetchWaiting == nil { await Task.yield() }
         XCTAssertNotNil(transport.fetchWaiting)
+        let recovery = try XCTUnwrap(chat.recoveryTaskForTesting)
         connection.deliver(event(4))
         for _ in 0..<1000 where !chat.messages.contains(where: { $0.serverSequence == 4 }) { await Task.yield() }
         let backfill = try XCTUnwrap(event(2).message)
         transport.completeFetch([backfill])
-        for _ in 0..<1000 where chat.gapUnresolved { await Task.yield() }
+        await recovery.value
         XCTAssertEqual(chat.messages.map(\.serverSequence), [1, 2, 3, 4])
         XCTAssertFalse(chat.gapUnresolved)
         chat.suspend()
@@ -383,6 +384,7 @@ import XCTest
         old.deliver(event(2))
         for _ in 0..<1000 where transport.fetchWaiting == nil { await Task.yield() }
         XCTAssertNotNil(transport.fetchWaiting)
+        let previousRecovery = try XCTUnwrap(chat.recoveryTaskForTesting)
         chat.connect(base: base, token: "new-fixture")
         for _ in 0..<1000 where transport.connections.count < 2 { await Task.yield() }
         let current = try XCTUnwrap(transport.connections.last)
@@ -390,7 +392,7 @@ import XCTest
         current.deliver(event(1))
         for _ in 0..<1000 where chat.messages.isEmpty { await Task.yield() }
         transport.completeFetch([try XCTUnwrap(event(2).message)])
-        for _ in 0..<50 { await Task.yield() }
+        await previousRecovery.value
         XCTAssertEqual(chat.messages.map(\.serverSequence), [1])
         XCTAssertFalse(chat.gapUnresolved)
         chat.suspend(); old.deliver(event(3)); current.deliver(event(3))

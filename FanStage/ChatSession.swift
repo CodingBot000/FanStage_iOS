@@ -53,6 +53,7 @@ struct ChatReconnectPolicy {
     var hasServerSession: Bool { base != nil && !token.isEmpty }
     var canSend: Bool { hasServerSession }
     var generation: Int { epoch }
+    var recoveryTaskForTesting: Task<Void, Never>? { recovery }
     private let transport: any ChatTransport
     private let retrySleep: (Int) async throws -> Void
 

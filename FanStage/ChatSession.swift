@@ -56,8 +56,11 @@ struct ChatReconnectPolicy {
     var canSend: Bool { hasServerSession }
     var generation: Int { epoch }
     private let session: URLSession
+    private let retrySleep: (Int) async throws -> Void
 
-    init(room: String, session: URLSession = .shared) { self.room = room; self.session = session }
+    init(room: String, session: URLSession = .shared, retrySleep: @escaping (Int) async throws -> Void = { delay in try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000) }) {
+        self.room = room; self.session = session; self.retrySleep = retrySleep
+    }
     func connect(base: URL, token: String) {
         guard pending.isEmpty else { return }
         stop(); rows.removeAll(); messages.removeAll(); cursor = 0; highest = 0; gapUnresolved = false
@@ -110,7 +113,7 @@ struct ChatReconnectPolicy {
                 socket?.cancel(with: .goingAway, reason: nil); socket = nil
                 guard let delay = policy.failed() else { break }
                 status = "Reconnecting"
-                do { try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000) } catch { return }
+                do { try await retrySleep(delay) } catch { return }
             }
         }
         if generation == epoch { status = "Disconnected" }

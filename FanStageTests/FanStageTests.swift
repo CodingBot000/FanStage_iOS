@@ -236,4 +236,77 @@ import XCTest
         XCTAssertEqual(chat.generation, generation)
         XCTAssertEqual(chat.status, "Disconnected")
     }
+    private func fixtureURL() throws -> URL {
+        guard let value = ProcessInfo.processInfo.environment["FANSTAGE_PHASE1B_FIXTURE"], let url = URL(string: value) else { throw XCTSkip("Loopback socket fixture not configured") }
+        return url
+    }
+    private func fixtureCount(_ key: String, at base: URL) async throws -> Int {
+        let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent("stats"))
+        return (try JSONDecoder().decode([String: Int].self, from: data))[key] ?? 0
+    }
+    private func waitForCount(_ key: String, _ count: Int, at base: URL) async throws {
+        for _ in 0..<200 {
+            if try await fixtureCount(key, at: base) >= count { return }
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+        XCTFail("Fixture did not observe expected socket count for \(key)")
+    }
+    func testRealSocketRetryLimitAndResetWhenConfigured() async throws {
+        let base = try fixtureURL()
+        let fast: (Int) async throws -> Void = { _ in try await Task.sleep(nanoseconds: 20_000_000) }
+        let limit = ChatSession(room: "limit", retrySleep: fast)
+        limit.connect(base: base, token: "fixture")
+        try await waitForCount("limit", 6, at: base)
+        for _ in 0..<100 where limit.status != "Disconnected" { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(limit.status, "Disconnected")
+        let limitCount = try await fixtureCount("limit", at: base)
+        XCTAssertEqual(limitCount, 6)
+        limit.stop()
+        let reset = ChatSession(room: "reset", retrySleep: fast)
+        reset.connect(base: base, token: "fixture")
+        try await waitForCount("reset", 6, at: base)
+        for _ in 0..<100 where reset.status != "Connected" { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(reset.status, "Connected")
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("release/reset"))
+        try await waitForCount("reset", 11, at: base)
+        for _ in 0..<100 where reset.status != "Connected" { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(reset.status, "Connected")
+        let resetCount = try await fixtureCount("reset", at: base)
+        XCTAssertEqual(resetCount, 11)
+        reset.stop()
+    }
+    func testRealSocketSuspendStopsRetryWhenConfigured() async throws {
+        let base = try fixtureURL()
+        let chat = ChatSession(room: "cancel", retrySleep: { _ in try await Task.sleep(nanoseconds: 2_000_000_000) })
+        chat.connect(base: base, token: "fixture")
+        try await waitForCount("cancel", 1, at: base)
+        chat.suspend()
+        try await Task.sleep(nanoseconds: 2_200_000_000)
+        let count = try await fixtureCount("cancel", at: base)
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(chat.status, "Disconnected")
+        chat.stop()
+    }
+    func testDelayedRealSocketDoesNotCorruptNewSessionWhenConfigured() async throws {
+        let base = try fixtureURL()
+        let chat = ChatSession(room: "delayed")
+        chat.connect(base: base, token: "fixture")
+        try await waitForCount("delayed_held", 1, at: base)
+        let old = chat.generation
+        chat.suspend()
+        chat.reconnect()
+        try await waitForCount("delayed", 2, at: base)
+        for _ in 0..<100 where chat.status != "Connected" { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(chat.status, "Connected")
+        let current = chat.generation
+        XCTAssertNotEqual(old, current)
+        _ = try await URLSession.shared.data(from: base.appendingPathComponent("release/delayed"))
+        try await waitForCount("delayed_release_attempted", 1, at: base)
+        XCTAssertEqual(chat.generation, current)
+        XCTAssertEqual(chat.status, "Connected")
+        XCTAssertTrue(chat.messages.isEmpty)
+        XCTAssertTrue(chat.pending.isEmpty)
+        XCTAssertEqual(chat.deadlineCount, 0)
+        chat.stop()
+    }
 }

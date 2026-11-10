@@ -414,4 +414,21 @@ import XCTest
         XCTAssertEqual(chat.pending.first?.id, id)
         connection.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
     }
+    func testFakeTransportFailureAndCancellationDoNotOpenAnotherSocket() async throws {
+        let transport = FakeChatTransport()
+        let chat = ChatSession(room: "room", transport: transport, retrySleep: { _ in try await Task.sleep(nanoseconds: 60_000_000_000) })
+        chat.connect(base: URL(string: "http://localhost")!, token: "fixture")
+        for _ in 0..<1000 where transport.connections.isEmpty { await Task.yield() }
+        let connection = try XCTUnwrap(transport.connections.first)
+        connection.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+        for _ in 0..<1000 where chat.status != "Connected" { await Task.yield() }
+        XCTAssertEqual(chat.status, "Connected")
+        connection.failReceive(URLError(.networkConnectionLost))
+        for _ in 0..<1000 where chat.status != "Reconnecting" { await Task.yield() }
+        XCTAssertEqual(chat.status, "Reconnecting")
+        chat.suspend()
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertEqual(transport.connections.count, 1)
+        XCTAssertEqual(chat.status, "Disconnected")
+    }
 }

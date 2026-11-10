@@ -5,17 +5,23 @@ import Foundation
     final class Connection: ChatConnection {
         var waiting: CheckedContinuation<Envelope, Error>?
         var queued: [Envelope] = []
+        var failure: Error?
         var sent: [(String, String)] = []
         var closed = false
         var holdSend = false
         var sendWaiting: CheckedContinuation<Void, Error>?
         func receive() async throws -> Envelope {
+            if let failure { self.failure = nil; throw failure }
             if !queued.isEmpty { return queued.removeFirst() }
             return try await withCheckedThrowingContinuation { waiting = $0 }
         }
         func deliver(_ event: Envelope) {
             if let waiting { self.waiting = nil; waiting.resume(returning: event) }
             else { queued.append(event) }
+        }
+        func failReceive(_ error: Error) {
+            if let waiting { self.waiting = nil; waiting.resume(throwing: error) }
+            else { failure = error }
         }
         func send(clientMessageId: String, text: String) async throws {
             sent.append((clientMessageId, text))

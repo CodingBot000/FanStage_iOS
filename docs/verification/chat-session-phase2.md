@@ -34,3 +34,5 @@
 ## P2-03 Transport 경계
 
 `ChatTransport`/`ChatConnection`과 `URLSessionChatTransport`로 WebSocket·HTTP 요청 및 직렬화 책임을 이동했다. `ChatSession`은 연결 식별과 세대 검증 및 UI 상태를 소유한다. 테스트용 Fake로 늦은 HTTP, 새 이벤트 이후 누락 보충, 이전 연결 이벤트 및 늦은 송신 완료를 제어한다. `/tmp/FanStagePhase2Fake3.log`와 `/tmp/FanStagePhase2Fake3.xcresult`: PASS 19 / FAIL 0 / SKIP 6. 이전 빌드 디렉터리 재사용 실행은 최신 Fake 테스트가 검색되지 않아 최종 근거로 쓰지 않고 새 디렉터리로 재실행했다. 실제 네트워크의 HTTP 지연 취소는 이 Fake 테스트로 증명되지 않는다.
+
+통합 스크립트는 기존 기본 경로를 유지하면서 `FANSTAGE_DERIVED_DATA`로 격리된 빌드 경로를 지정할 수 있도록 했다. 목적은 오래된 XCTest 검색 결과를 재사용하지 않고 실제 최신 테스트 목록을 확인하는 것이다.

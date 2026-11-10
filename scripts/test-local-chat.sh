@@ -28,5 +28,5 @@ xcrun simctl spawn booted launchctl setenv FANSTAGE_TEST_ACK_PROXY http://127.0.
 xcrun simctl spawn booted launchctl setenv FANSTAGE_TEST_URL http://127.0.0.1:28765
 xcrun simctl spawn booted launchctl setenv FANSTAGE_TEST_TOKEN "$FANSTAGE_TOKEN_ALICE"
 test_selection="${FANSTAGE_TEST_SELECTION:--only-testing:FanStageTests}"
-xcodebuild -project FanStage.xcodeproj -scheme FanStage -destination "platform=iOS Simulator,id=$(xcrun simctl list devices booted -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for devices in d["devices"].values() for x in devices if x["state"] == "Booted"))')" -derivedDataPath /tmp/FanStageiOSDerived CODE_SIGNING_ALLOWED=NO $test_selection test > /tmp/fanstage-integration-test.log 2>&1
+xcodebuild -project FanStage.xcodeproj -scheme FanStage -destination "platform=iOS Simulator,id=$(xcrun simctl list devices booted -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for devices in d["devices"].values() for x in devices if x["state"] == "Booted"))')" -derivedDataPath "${FANSTAGE_DERIVED_DATA:-/tmp/FanStageiOSDerived}" CODE_SIGNING_ALLOWED=NO $test_selection test > /tmp/fanstage-integration-test.log 2>&1
 rg 'testLostAcknowledgement|testLocalServerIntegration|Executed [0-9]+ tests|TEST (SUCCEEDED|FAILED)' /tmp/fanstage-integration-test.log | tail -12

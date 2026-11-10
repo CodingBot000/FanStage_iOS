@@ -44,7 +44,7 @@ struct ChatReconnectPolicy {
     private let room: String
     private var base: URL?
     private var token = ""
-    private var socket: URLSessionWebSocketTask?
+    private var socket: (any ChatConnection)?
     private var worker: Task<Void, Never>?
     private var recovery: Task<Void, Never>?
     private var epoch = 0
@@ -53,11 +53,11 @@ struct ChatReconnectPolicy {
     var hasServerSession: Bool { base != nil && !token.isEmpty }
     var canSend: Bool { hasServerSession }
     var generation: Int { epoch }
-    private let session: URLSession
+    private let transport: any ChatTransport
     private let retrySleep: (Int) async throws -> Void
 
-    init(room: String, session: URLSession = .shared, retrySleep: @escaping (Int) async throws -> Void = { delay in try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000) }) {
-        self.room = room; self.timeline = ChatTimeline(room: room); self.session = session; self.retrySleep = retrySleep
+    init(room: String, transport: (any ChatTransport)? = nil, retrySleep: @escaping (Int) async throws -> Void = { delay in try await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000) }) {
+        self.room = room; self.timeline = ChatTimeline(room: room); self.transport = transport ?? URLSessionChatTransport(); self.retrySleep = retrySleep
     }
     func connect(base: URL, token: String) {
         guard pending.isEmpty else { return }
@@ -69,11 +69,11 @@ struct ChatReconnectPolicy {
     }
     func stop() {
         if !pending.isEmpty { suspend(); return }
-        epoch += 1; worker?.cancel(); recovery?.cancel(); socket?.cancel(with: .goingAway, reason: nil)
+        epoch += 1; worker?.cancel(); recovery?.cancel(); socket?.close()
         worker = nil; recovery = nil; socket = nil; deadlines.values.forEach { $0.cancel() }; deadlines.removeAll(); token = ""; base = nil; status = "Disconnected"
     }
     func suspend() {
-        epoch += 1; worker?.cancel(); recovery?.cancel(); socket?.cancel(with: .goingAway, reason: nil)
+        epoch += 1; worker?.cancel(); recovery?.cancel(); socket?.close()
         worker = nil; recovery = nil; socket = nil; deadlines.values.forEach { $0.cancel() }; deadlines.removeAll()
         for index in pending.indices where !pending[index].failed { pending[index].uncertain = true }
         status = "Disconnected"
@@ -83,24 +83,17 @@ struct ChatReconnectPolicy {
         while !Task.isCancelled && generation == epoch {
             do {
                 status = policy.failures == 0 ? "Connecting" : "Reconnecting"
-                guard let base, var components = URLComponents(url: base.appendingPathComponent("ws/rooms/\(room)"), resolvingAgainstBaseURL: false) else { throw URLError(.badURL) }
-                components.scheme = components.scheme == "https" ? "wss" : "ws"
-                guard let url = components.url else { throw URLError(.badURL) }
-                var request = URLRequest(url: url); request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                let ws = session.webSocketTask(with: request); socket = ws; ws.resume()
+                guard let base else { throw URLError(.badURL) }
+                let ws = try transport.open(base: base, token: token, room: room); socket = ws
                 while !Task.isCancelled && generation == epoch {
-                    guard let packet = try await receiveCurrent(generation: generation, receive: {
-                        let frame = try await ws.receive()
-                        let data: Data
-                        switch frame { case .string(let value): data = Data(value.utf8); case .data(let value): data = value; @unknown default: throw URLError(.cannotDecodeContentData) }
-                        guard data.count <= 8192 else { throw URLError(.cannotDecodeContentData) }
-                        return try JSONDecoder().decode(Envelope.self, from: data)
-                    }), socket === ws else { return }
+                    guard let packet = try await receiveCurrent(generation: generation, valid: { self.socket === ws }, receive: {
+                        try await ws.receive()
+                    }) else { return }
                     if packet.type == "subscribed" {
                         policy.subscribed()
                         for item in pending where !item.failed {
                             let completed = try await completeSend(item, generation: generation, valid: { self.socket === ws }) {
-                                try await self.transmit(item, socket: ws)
+                                try await ws.send(clientMessageId: item.id, text: item.text)
                             }
                             guard completed else { return }
                         }
@@ -108,7 +101,7 @@ struct ChatReconnectPolicy {
                 }
             } catch {
                 guard !Task.isCancelled && generation == epoch else { return }
-                socket?.cancel(with: .goingAway, reason: nil); socket = nil
+                socket?.close(); socket = nil
                 guard let delay = policy.failed() else { break }
                 status = "Reconnecting"
                 do { try await retrySleep(delay) } catch { return }
@@ -116,9 +109,9 @@ struct ChatReconnectPolicy {
         }
         if generation == epoch { status = "Disconnected" }
     }
-    func receiveCurrent(generation: Int, receive: () async throws -> Envelope) async throws -> Envelope? {
+    func receiveCurrent(generation: Int, valid: () -> Bool = { true }, receive: () async throws -> Envelope) async throws -> Envelope? {
         let packet = try await receive()
-        guard process(packet, generation: generation) else { return nil }
+        guard valid(), process(packet, generation: generation) else { return nil }
         return packet
     }
     @discardableResult func process(_ packet: Envelope, generation: Int) -> Bool {
@@ -157,11 +150,11 @@ struct ChatReconnectPolicy {
         deadlines[id]?.cancel(); deadlines[id] = nil
         pending.removeAll { $0.id == id }
     }
-    private func sendPending(_ item: PendingChat, socket: URLSessionWebSocketTask) {
+    private func sendPending(_ item: PendingChat, socket: any ChatConnection) {
         let generation = epoch
         Task {
-            do { _ = try await completeSend(item, generation: generation, valid: { self.socket === socket }) { try await self.transmit(item, socket: socket) } }
-            catch { if !Task.isCancelled, generation == epoch, self.socket === socket { socket.cancel(with: .goingAway, reason: nil) } }
+            do { _ = try await completeSend(item, generation: generation, valid: { self.socket === socket }) { try await socket.send(clientMessageId: item.id, text: item.text) } }
+            catch { if !Task.isCancelled, generation == epoch, self.socket === socket { socket.close() } }
         }
     }
     var deadlineCount: Int { deadlines.count }
@@ -179,10 +172,6 @@ struct ChatReconnectPolicy {
             pending[index].uncertain = true; deadlines[id] = nil
         }
     }
-    private func transmit(_ item: PendingChat, socket: URLSessionWebSocketTask) async throws {
-        let data = try JSONSerialization.data(withJSONObject: ["type": "send", "clientMessageId": item.id, "text": item.text])
-        try await socket.send(.string(String(decoding: data, as: UTF8.self)))
-    }
     func merge(_ message: ServerMessage) {
         guard timeline.merge(message) else { return }
         if message.isOwn, let id = message.clientMessageId { deadlines[id]?.cancel(); deadlines[id] = nil; pending.removeAll { $0.id == id } }
@@ -196,13 +185,9 @@ struct ChatReconnectPolicy {
             do {
                 while timeline.hasGap && !Task.isCancelled && generation == epoch {
                     let before = timeline.cursor
-                    guard let base, var components = URLComponents(url: base.appendingPathComponent("rooms/\(room)/messages"), resolvingAgainstBaseURL: false) else { throw URLError(.badURL) }
-                    components.queryItems = [URLQueryItem(name: "afterSequence", value: String(timeline.cursor)), URLQueryItem(name: "upperSequence", value: String(timeline.highest)), URLQueryItem(name: "limit", value: "200")]
-                    guard let url = components.url else { throw URLError(.badURL) }
-                    var request = URLRequest(url: url); request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                    let (data, response) = try await session.data(for: request)
-                    guard !Task.isCancelled, generation == epoch, (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-                    let page = try JSONDecoder().decode([ServerMessage].self, from: data)
+                    guard let base else { throw URLError(.badURL) }
+                    let page = try await transport.fetch(base: base, token: token, room: room, after: timeline.cursor, upper: timeline.highest, limit: 200)
+                    guard !Task.isCancelled, generation == epoch else { return }
                     for row in page { merge(row) }
                     guard timeline.cursor > before else { throw URLError(.cannotDecodeContentData) }
                 }

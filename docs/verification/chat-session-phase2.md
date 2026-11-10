@@ -30,3 +30,7 @@
 ## P2-03 타임라인 분리
 
 `ChatTimeline`으로 룸·순번·연속 커서·최대 순번·표시 한도를 이동했다. Pending ACK 해소는 `ChatSession`에 유지한다. `testTimelineMergesLateBackfillWithoutLosingNewEvents`로 1→3→4→지연 2, 중복 및 다른 룸을 확인했다. 첫 빌드는 `ChatTimeline` 초기화 접근 오류로 실패했고 초기화자를 명시한 후 재실행했다. `/tmp/FanStagePhase2Timeline.log` FAIL, `/tmp/FanStagePhase2Timeline2.log` PASS 15 / FAIL 0 / SKIP 6; `/tmp/FanStagePhase2Timeline2.xcresult`.
+
+## P2-03 Transport 경계
+
+`ChatTransport`/`ChatConnection`과 `URLSessionChatTransport`로 WebSocket·HTTP 요청 및 직렬화 책임을 이동했다. `ChatSession`은 연결 식별과 세대 검증 및 UI 상태를 소유한다. 테스트용 Fake로 늦은 HTTP, 새 이벤트 이후 누락 보충, 이전 연결 이벤트 및 늦은 송신 완료를 제어한다. `/tmp/FanStagePhase2Fake3.log`와 `/tmp/FanStagePhase2Fake3.xcresult`: PASS 19 / FAIL 0 / SKIP 6. 이전 빌드 디렉터리 재사용 실행은 최신 Fake 테스트가 검색되지 않아 최종 근거로 쓰지 않고 새 디렉터리로 재실행했다. 실제 네트워크의 HTTP 지연 취소는 이 Fake 테스트로 증명되지 않는다.

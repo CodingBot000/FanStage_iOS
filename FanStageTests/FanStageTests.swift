@@ -328,4 +328,90 @@ import XCTest
         XCTAssertEqual(timeline.cursor, 4)
         XCTAssertFalse(timeline.hasGap)
     }
+    func testFakeTransportLateBackfillMergesNewerEvent() async throws {
+        let transport = FakeChatTransport()
+        let chat = ChatSession(room: "room", transport: transport)
+        chat.connect(base: URL(string: "http://localhost")!, token: "fixture")
+        for _ in 0..<1000 where transport.connections.isEmpty { await Task.yield() }
+        let connection = try XCTUnwrap(transport.connections.first)
+        func event(_ n: Int) -> Envelope {
+            Envelope(type: "message", headSequence: nil, message: ServerMessage(roomId: "room", messageId: "\(n)", clientMessageId: nil, serverSequence: n, text: "\(n)", isOwn: false, sentAt: ""), clientMessageId: nil, code: nil)
+        }
+        connection.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+        connection.deliver(event(1)); connection.deliver(event(3))
+        for _ in 0..<1000 where transport.fetchWaiting == nil { await Task.yield() }
+        XCTAssertNotNil(transport.fetchWaiting)
+        connection.deliver(event(4))
+        for _ in 0..<1000 where !chat.messages.contains(where: { $0.serverSequence == 4 }) { await Task.yield() }
+        let backfill = try XCTUnwrap(event(2).message)
+        transport.completeFetch([backfill])
+        for _ in 0..<1000 where chat.gapUnresolved { await Task.yield() }
+        XCTAssertEqual(chat.messages.map(\.serverSequence), [1, 2, 3, 4])
+        XCTAssertFalse(chat.gapUnresolved)
+        chat.suspend()
+        connection.deliver(event(5))
+    }
+    func testFakeTransportIgnoresOldConnectionEvent() async throws {
+        let transport = FakeChatTransport()
+        let chat = ChatSession(room: "room", transport: transport)
+        chat.connect(base: URL(string: "http://localhost")!, token: "fixture")
+        for _ in 0..<1000 where transport.connections.isEmpty { await Task.yield() }
+        let old = try XCTUnwrap(transport.connections.first)
+        chat.suspend(); chat.reconnect()
+        for _ in 0..<1000 where transport.connections.count < 2 { await Task.yield() }
+        XCTAssertTrue(old.closed)
+        old.deliver(Envelope(type: "subscribed", headSequence: 9, message: nil, clientMessageId: nil, code: nil))
+        let current = try XCTUnwrap(transport.connections.last)
+        current.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+        for _ in 0..<1000 where chat.status != "Connected" { await Task.yield() }
+        XCTAssertEqual(chat.status, "Connected")
+        XCTAssertTrue(chat.messages.isEmpty)
+        XCTAssertFalse(chat.gapUnresolved)
+        XCTAssertTrue(transport.fetchedRanges.isEmpty)
+        chat.suspend()
+        current.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+    }
+    func testFakeTransportCancelledLateHTTPDoesNotAlterNewSession() async throws {
+        let transport = FakeChatTransport()
+        let chat = ChatSession(room: "room", transport: transport)
+        let base = URL(string: "http://localhost")!
+        chat.connect(base: base, token: "fixture")
+        for _ in 0..<1000 where transport.connections.isEmpty { await Task.yield() }
+        let old = try XCTUnwrap(transport.connections.first)
+        func event(_ n: Int) -> Envelope { Envelope(type: "message", headSequence: nil, message: ServerMessage(roomId: "room", messageId: "\(n)", clientMessageId: nil, serverSequence: n, text: "\(n)", isOwn: false, sentAt: ""), clientMessageId: nil, code: nil) }
+        old.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+        old.deliver(event(2))
+        for _ in 0..<1000 where transport.fetchWaiting == nil { await Task.yield() }
+        XCTAssertNotNil(transport.fetchWaiting)
+        chat.connect(base: base, token: "new-fixture")
+        for _ in 0..<1000 where transport.connections.count < 2 { await Task.yield() }
+        let current = try XCTUnwrap(transport.connections.last)
+        current.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+        current.deliver(event(1))
+        for _ in 0..<1000 where chat.messages.isEmpty { await Task.yield() }
+        transport.completeFetch([try XCTUnwrap(event(2).message)])
+        for _ in 0..<50 { await Task.yield() }
+        XCTAssertEqual(chat.messages.map(\.serverSequence), [1])
+        XCTAssertFalse(chat.gapUnresolved)
+        chat.suspend(); old.deliver(event(3)); current.deliver(event(3))
+    }
+    func testFakeTransportLateSendCompletionDoesNotRestartDeadline() async throws {
+        let transport = FakeChatTransport()
+        let chat = ChatSession(room: "room", transport: transport)
+        chat.connect(base: URL(string: "http://localhost")!, token: "fixture")
+        for _ in 0..<1000 where transport.connections.isEmpty { await Task.yield() }
+        let connection = try XCTUnwrap(transport.connections.first)
+        connection.holdSend = true
+        connection.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+        for _ in 0..<1000 where chat.status != "Connected" { await Task.yield() }
+        XCTAssertTrue(chat.send("hello"))
+        for _ in 0..<1000 where connection.sendWaiting == nil { await Task.yield() }
+        XCTAssertNotNil(connection.sendWaiting)
+        let id = try XCTUnwrap(chat.pending.first?.id)
+        chat.suspend(); connection.completeSend()
+        for _ in 0..<50 { await Task.yield() }
+        XCTAssertEqual(chat.deadlineCount, 0)
+        XCTAssertEqual(chat.pending.first?.id, id)
+        connection.deliver(Envelope(type: "subscribed", headSequence: 0, message: nil, clientMessageId: nil, code: nil))
+    }
 }

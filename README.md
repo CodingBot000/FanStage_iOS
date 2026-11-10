@@ -6,7 +6,7 @@ FanStage iOS는 [Android FanStage](https://github.com/CodingBot000/fanstage-andr
 
 **기술 스택:** Swift · SwiftUI · AVFoundation/AVKit · Swift Concurrency · URLSession WebSocket/HTTP · XCTest/XCUITest · Spring Boot · PostgreSQL
 
-**현재 상태:** iOS 17 이상 iPhone, 세로 화면을 지원하는 개발 중인 프로젝트입니다. Android 기능 전체가 이관된 상태는 아닙니다. [Android 기능 대조와 미이관 항목](docs/android-parity.md)
+**현재 상태:** iOS 17 이상 iPhone, 세로 화면을 지원하는 개발 중인 프로젝트입니다. 채팅 후보정의 진행 상황은 [Phase 1 상태](docs/HARDENING_STATUS.md)를 확인하세요. Android 기능 전체가 이관된 상태는 아닙니다. [Android 기능 대조와 미이관 항목](docs/android-parity.md)
 
 ## 앱 화면
 

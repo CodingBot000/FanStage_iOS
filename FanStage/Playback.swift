@@ -57,6 +57,7 @@ struct PlaybackView: View {
     @StateObject private var session = PlaybackSession()
     @ObservedObject var chat: ChatSession
     @State private var expanded = false
+    @State private var confirmPendingExit = false
     @State private var showSettings = false
     #if DEBUG
     @State private var source = ""
@@ -75,7 +76,11 @@ struct PlaybackView: View {
             if let artist { LiveChatView(artist: artist, session: chat) } else { Spacer() }
         }.navigationTitle(artist == nil ? "Replay" : "LIVE").navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
-            .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button { dismiss() } label: { Label("Back", systemImage: "chevron.left") } } }
+            .toolbar { ToolbarItem(placement: .navigationBarLeading) { Button { if chat.pending.isEmpty { dismiss() } else { confirmPendingExit = true } } label: { Label("Back", systemImage: "chevron.left") } } }
+            .alert("Pending messages", isPresented: $confirmPendingExit) {
+                Button("Stay", role: .cancel) {}
+                Button("Leave") { dismiss() }
+            } message: { Text("Pending messages remain available while the app is open, but are lost when it closes.") }
             .sheet(isPresented: $showSettings) { settings.presentationDetents([.medium, .large]) }
             .fullScreenCover(isPresented: $expanded) { ZStack(alignment: .topTrailing) { Color.black.ignoresSafeArea(); VideoPlayer(player: session.player); Button("Done") { expanded = false }.padding().background(.ultraThinMaterial, in: Capsule()).padding() } }
             .onAppear { if session.player.currentItem == nil, let url = Bundle.main.url(forResource: "demo", withExtension: "mp4") { session.load(url) } }

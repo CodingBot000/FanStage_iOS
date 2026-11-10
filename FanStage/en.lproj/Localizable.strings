@@ -62,3 +62,4 @@
 "Cancel" = "Cancel";
 "Discard" = "Discard";
 "This message may have been delivered. Discarding it removes the local retry state." = "This message may have been delivered. Discarding it removes the local retry state.";
+"Pending messages remain available while the app is open, but are lost when it closes." = "Pending messages remain available while the app is open, but are lost when it closes.";

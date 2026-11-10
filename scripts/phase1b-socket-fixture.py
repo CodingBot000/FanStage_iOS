@@ -39,7 +39,7 @@ class Handler(socketserver.BaseRequestHandler):
             with lock:
                 counts[room] = counts.get(room, 0) + 1
                 attempt = counts[room]
-            if room in ('limit', 'cancel') or (room == 'reset' and attempt not in (6, 11)):
+            if room in ('limit', 'cancel', 'cancelstop') or (room == 'reset' and attempt not in (6, 11)):
                 sock.sendall(b'HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); return
             key = headers.get('sec-websocket-key', '')
             accept = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest())

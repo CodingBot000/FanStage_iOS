@@ -277,15 +277,22 @@ import XCTest
     }
     func testRealSocketSuspendStopsRetryWhenConfigured() async throws {
         let base = try fixtureURL()
-        let chat = ChatSession(room: "cancel", retrySleep: { _ in try await Task.sleep(nanoseconds: 2_000_000_000) })
-        chat.connect(base: base, token: "fixture")
+        let sleep: (Int) async throws -> Void = { _ in try await Task.sleep(nanoseconds: 2_000_000_000) }
+        let suspended = ChatSession(room: "cancel", retrySleep: sleep)
+        let stopped = ChatSession(room: "cancelstop", retrySleep: sleep)
+        suspended.connect(base: base, token: "fixture")
+        stopped.connect(base: base, token: "fixture")
         try await waitForCount("cancel", 1, at: base)
-        chat.suspend()
+        try await waitForCount("cancelstop", 1, at: base)
+        suspended.suspend(); stopped.stop()
         try await Task.sleep(nanoseconds: 2_200_000_000)
-        let count = try await fixtureCount("cancel", at: base)
-        XCTAssertEqual(count, 1)
-        XCTAssertEqual(chat.status, "Disconnected")
-        chat.stop()
+        let suspendedCount = try await fixtureCount("cancel", at: base)
+        let stoppedCount = try await fixtureCount("cancelstop", at: base)
+        XCTAssertEqual(suspendedCount, 1)
+        XCTAssertEqual(stoppedCount, 1)
+        XCTAssertEqual(suspended.status, "Disconnected")
+        XCTAssertEqual(stopped.status, "Disconnected")
+        suspended.stop()
     }
     func testDelayedRealSocketDoesNotCorruptNewSessionWhenConfigured() async throws {
         let base = try fixtureURL()

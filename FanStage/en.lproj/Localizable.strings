@@ -58,3 +58,7 @@
 "Communities" = "Communities";
 "Filter" = "Filter";
 "All" = "All";
+"Discard pending message?" = "Discard pending message?";
+"Cancel" = "Cancel";
+"Discard" = "Discard";
+"This message may have been delivered. Discarding it removes the local retry state." = "This message may have been delivered. Discarding it removes the local retry state.";

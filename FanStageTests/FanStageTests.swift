@@ -28,6 +28,7 @@ import XCTest
     }
     func testAckResolvesPendingByClientID() {
         let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "test-token")
         chat.send("hello")
         let id = chat.pending[0].id
         chat.merge(ServerMessage(roomId: "studio-session", messageId: "server", clientMessageId: id, serverSequence: 1, text: "hello", isOwn: true, sentAt: ""))
@@ -84,6 +85,7 @@ import XCTest
     func testRoomSessionRetainsPendingAcrossNavigation() {
         let store = FanStore()
         let first = store.chat(for: "studio-session")
+        first.connect(base: URL(string: "http://127.0.0.1:1")!, token: "test-token")
         first.send("Waiting")
         let id = first.pending[0].id
         first.suspend()
@@ -122,5 +124,116 @@ import XCTest
         let chat = ChatSession(room: "studio-session")
         chat.send("draft")
         XCTAssertTrue(chat.pending.isEmpty, "Unbound messages cannot be safely assigned to an account")
+    }
+    func testCancelledGenerationRejectsOldAckAndSubscription() throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "test-token")
+        XCTAssertTrue(chat.send("pending"))
+        let id = try XCTUnwrap(chat.pending.first?.id)
+        let old = chat.generation
+        chat.suspend()
+        let decoder = JSONDecoder()
+        let subscribed = try decoder.decode(Envelope.self, from: Data("{\"type\":\"subscribed\",\"headSequence\":0}".utf8))
+        XCTAssertFalse(chat.process(subscribed, generation: old))
+        XCTAssertEqual(chat.status, "Disconnected")
+        let message = ServerMessage(roomId: "studio-session", messageId: "server", clientMessageId: id, serverSequence: 1, text: "pending", isOwn: true, sentAt: "")
+        let payload = try JSONSerialization.data(withJSONObject: ["type": "ack", "message": JSONSerialization.jsonObject(with: JSONEncoder().encode(message))])
+        let ack = try decoder.decode(Envelope.self, from: payload)
+        XCTAssertFalse(chat.process(ack, generation: old))
+        XCTAssertEqual(chat.pending.first?.id, id)
+        XCTAssertTrue(chat.messages.isEmpty)
+        XCTAssertTrue(chat.process(ack, generation: chat.generation))
+        XCTAssertTrue(chat.pending.isEmpty)
+    }
+    func testRetryPolicyResetsOnSubscriptionAndStopsAtLimit() {
+        var policy = ChatReconnectPolicy()
+        XCTAssertEqual(policy.failed(), 1)
+        XCTAssertEqual(policy.failed(), 2)
+        policy.subscribed()
+        XCTAssertEqual(policy.failed(), 1)
+        for _ in 0..<4 { XCTAssertNotNil(policy.failed()) }
+        XCTAssertNil(policy.failed())
+        XCTAssertEqual(policy.failures, policy.maximumFailures)
+    }
+    func testBoundPendingCannotSwitchAccountOrBeClearedByStop() throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "first")
+        XCTAssertTrue(chat.send("pending"))
+        let id = try XCTUnwrap(chat.pending.first?.id)
+        chat.connect(base: URL(string: "http://127.0.0.1:2")!, token: "second")
+        XCTAssertEqual(chat.pending.first?.id, id)
+        chat.stop()
+        XCTAssertTrue(chat.hasServerSession)
+        XCTAssertEqual(chat.pending.first?.id, id)
+    }
+    func testDelayedReceiveAfterSuspendIsIgnored() async throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "first")
+        XCTAssertTrue(chat.send("pending"))
+        let id = try XCTUnwrap(chat.pending.first?.id)
+        let message = ServerMessage(roomId: "studio-session", messageId: "server", clientMessageId: id, serverSequence: 1, text: "pending", isOwn: true, sentAt: "")
+        let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(message))
+        let data = try JSONSerialization.data(withJSONObject: ["type": "ack", "message": object])
+        let packet = try JSONDecoder().decode(Envelope.self, from: data)
+        let old = chat.generation
+        var continuation: CheckedContinuation<Envelope, Never>?
+        let task = Task { try await chat.receiveCurrent(generation: old) { await withCheckedContinuation { continuation = $0 } } }
+        while continuation == nil { await Task.yield() }
+        chat.suspend()
+        continuation?.resume(returning: packet)
+        let result = try await task.value
+        XCTAssertNil(result)
+        XCTAssertEqual(chat.pending.first?.id, id)
+        XCTAssertTrue(chat.messages.isEmpty)
+    }
+    func testDelayedSendCompletionAfterSuspendDoesNotStartDeadline() async throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "first")
+        XCTAssertTrue(chat.send("pending"))
+        let item = try XCTUnwrap(chat.pending.first)
+        let old = chat.generation
+        var continuation: CheckedContinuation<Void, Never>?
+        let task = Task { try await chat.completeSend(item, generation: old, valid: { true }) { await withCheckedContinuation { continuation = $0 } } }
+        while continuation == nil { await Task.yield() }
+        chat.suspend()
+        continuation?.resume()
+        let completed = try await task.value
+        XCTAssertFalse(completed)
+        XCTAssertEqual(chat.deadlineCount, 0)
+        XCTAssertEqual(chat.pending.first?.id, item.id)
+    }
+    func testPendingDiscardRequiresConfirmation() throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "first")
+        XCTAssertTrue(chat.send("pending"))
+        let id = try XCTUnwrap(chat.pending.first?.id)
+        chat.discard(id, confirmed: false)
+        XCTAssertEqual(chat.pending.first?.id, id)
+        chat.discard(id, confirmed: true)
+        XCTAssertTrue(chat.pending.isEmpty)
+    }
+    func testDelayedSubscriptionAfterSuspendIsIgnored() async throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "first")
+        let packet = try JSONDecoder().decode(Envelope.self, from: Data("{\"type\":\"subscribed\",\"headSequence\":0}".utf8))
+        let old = chat.generation
+        var continuation: CheckedContinuation<Envelope, Never>?
+        let task = Task { try await chat.receiveCurrent(generation: old) { await withCheckedContinuation { continuation = $0 } } }
+        while continuation == nil { await Task.yield() }
+        chat.suspend()
+        continuation?.resume(returning: packet)
+        let result = try await task.value
+        XCTAssertNil(result)
+        XCTAssertEqual(chat.status, "Disconnected")
+    }
+    func testSuspendedReconnectDoesNotChangeStatus() async throws {
+        let chat = ChatSession(room: "studio-session")
+        chat.connect(base: URL(string: "http://127.0.0.1:1")!, token: "first")
+        try await Task.sleep(nanoseconds: 200_000_000)
+        chat.suspend()
+        let generation = chat.generation
+        try await Task.sleep(nanoseconds: 1_300_000_000)
+        XCTAssertEqual(chat.generation, generation)
+        XCTAssertEqual(chat.status, "Disconnected")
     }
 }

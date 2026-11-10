@@ -80,7 +80,10 @@ struct PlaybackView: View {
             .fullScreenCover(isPresented: $expanded) { ZStack(alignment: .topTrailing) { Color.black.ignoresSafeArea(); VideoPlayer(player: session.player); Button("Done") { expanded = false }.padding().background(.ultraThinMaterial, in: Capsule()).padding() } }
             .onAppear { if session.player.currentItem == nil, let url = Bundle.main.url(forResource: "demo", withExtension: "mp4") { session.load(url) } }
             .onDisappear { if !expanded { session.stop(); chat.suspend() } }
-            .onChange(of: scenePhase) { phase in if phase != .active { session.player.pause() } }
+            .onChange(of: scenePhase) { phase in
+                if phase != .active { session.player.pause(); chat.suspend() }
+                else if chat.hasServerSession { chat.reconnect() }
+            }
     }
     private var settings: some View {
         NavigationStack { Form {

@@ -1,6 +1,6 @@
 # iOS 채팅 후보정 현황
 
-- **Phase 1: VERIFIED** — Phase 1B의 지정된 자동 검증을 통과했다. 아래 범위와 한계에 한정한다.
+- **Phase 1: VERIFIED (scope-limited)** — Phase 1B의 지정된 자동 검증을 통과했다. 아래 범위와 한계에 한정한다.
 - Phase 1 기준 HEAD: `3a580eebc9ae38ecd2ae91821cc01f9ec5ed2f5a`
 - Phase 1B 시작 HEAD: `9744396`
 - 마지막으로 검증한 코드·테스트 커밋: `9cb220f3b4300ef3748824a7c1bcf043fc64db81`
@@ -23,4 +23,10 @@ Phase 2는 사용자 승인 후 책임 분리와 네트워크 경계 테스트 �
 
 ## Phase 2
 
-- **IN_PROGRESS** — 시작 HEAD `1c399b4`; 기준선과 작업 기록은 [Phase 2 검증](verification/chat-session-phase2.md)에 기록한다.
+- **VERIFIED** — 시작 HEAD `1c399b4`; 검증한 코드·테스트 커밋 `fbdaaf1c67e48dc1232735ca1da11d7b3c59ed6f`.
+- [x] 기준선·계약 확인 및 `ChatTimeline` 분리
+- [x] `ChatTransport`/`URLSessionChatTransport`와 제어 가능한 Fake 분리
+- [x] Phase 1 단위·UI·기존 서버·실소켓 회귀, build/analyze
+- [x] Fake HTTP 지연 취소 검증 (SIMULATED_PASS)
+- 실제 HTTP 지연 취소, 취소 소켓에 대한 지연 프레임의 실제 전달, 장시간 리소스 누수는 NOT_VERIFIED다. 세부 결과는 [Phase 2 검증](verification/chat-session-phase2.md)에 기록한다.
+- Phase 3 후보는 장시간 리소스 관찰과 실제 네트워크 지연 검증이다. 구현은 시작하지 않았다.

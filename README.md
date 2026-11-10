@@ -36,7 +36,7 @@ Discover에서 LIVE·Replay와 아티스트 커뮤니티로 이동합니다. Com
 
 ### LIVE 채팅과 기존 백엔드
 
-`ChatSession`은 룸별 메시지와 전송 상태를 관리합니다. 로컬 서버 모드에서는 WebSocket으로 이벤트를 받고 HTTP로 누락 메시지를 조회합니다. 서버 순번으로 메시지를 병합하고, ACK가 유실되면 미확정 상태를 유지한 채 같은 `clientMessageId`로 재시도합니다. 앱 실행 중에는 룸을 나갔다 돌아와도 미확정 메시지를 메모리에 유지합니다. **앱 종료 후에는 보존되지 않습니다.**
+`ChatSession`은 룸별 메시지와 전송 상태를 관리하며, 순번 병합은 `ChatTimeline`, 네트워크 I/O는 `ChatTransport`와 `URLSessionChatTransport`로 분리합니다. 로컬 서버 모드에서는 WebSocket으로 이벤트를 받고 HTTP로 누락 메시지를 조회합니다. 서버 순번으로 메시지를 병합하고, ACK가 유실되면 미확정 상태를 유지한 채 같은 `clientMessageId`로 재시도합니다. 앱 실행 중에는 룸을 나갔다 돌아와도 미확정 메시지를 메모리에 유지합니다. **앱 종료 후에는 보존되지 않습니다.**
 
 기존 Android 프로젝트의 [Spring Boot·PostgreSQL 채팅 서버](https://github.com/CodingBot000/fanstage-android-ai-harness/tree/main/backend/chat-server)를 변경 없이 재사용합니다. 이 서버는 운영 서비스가 아니라 로컬 개발·검증용입니다. 기본 Fake 채팅은 서버 없이 사용할 수 있으며 실제 서버 연결은 Debug에서 선택합니다.
 
@@ -48,8 +48,10 @@ flowchart TB
     UI --> PLAYER["PlaybackSession · AVPlayer"]
     UI --> CHAT["ChatSession · 룸별 상태"]
     UI --> FAKE["Fake 채팅"]
-    CHAT --> WS["WebSocket · 실시간 메시지"]
-    CHAT --> HTTP["HTTP · 누락 조회"]
+    CHAT --> TIMELINE["ChatTimeline · 순서와 누락"]
+    CHAT --> TRANSPORT["ChatTransport · URLSession"]
+    TRANSPORT --> WS["WebSocket · 실시간 메시지"]
+    TRANSPORT --> HTTP["HTTP · 누락 조회"]
     WS --> SERVER["기존 로컬 채팅 서버"]
     HTTP --> SERVER
     SERVER --> DB["PostgreSQL"]
